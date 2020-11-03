@@ -3,100 +3,101 @@
 /*                                                        :::      ::::::::   */
 /*   main.c                                             :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: frlindh <frlindh@student.42.fr>            +#+  +:+       +#+        */
+/*   By: tharchen <tharchen@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2020/01/22 18:13:58 by frlindh           #+#    #+#             */
-/*   Updated: 2020/01/23 17:09:53 by frlindh          ###   ########.fr       */
+/*   Created: 2020/02/15 12:52:12 by tharchen          #+#    #+#             */
+/*   Updated: 2020/04/13 14:08:26 by tharchen         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "../includes/minishell.h"
+#include <minishell.h>
 
-int		ft_strlen(char *str)
+void	print_prompt(int sloc)
 {
+	char	prompt[LINE_MAX];
 	int		i;
+	int		last;
 
-	i = 0;
-	while (str && str[i])
-		i++;
-	return (i);
-}
-
-void	ft_error(char *str)
-{
-	write(2, str, ft_strlen(str));
-	exit (-1);
-}
-
-void	freem(char *line, char **arg)
-{
-	free(line);
-	while (arg && *arg)
-		free(*arg++);
-}
-
-char	*read_line() //replace with gnl ?
-{
-	char	*buf;
-	int		i;
-	char	c;
-	int		size;
-	// int		ret;
-
-	i = 0;
-	size = 1;
-	if (!(buf = (char *)malloc(sizeof(BUFF_SIZE))))
-		ft_error("allocation error\n");
-	while (1)
+	(!g_exit && sloc) ? g_exit = sloc : 0;
+	if (!getcwd(prompt, LINE_MAX))
 	{
-		read(0, &c, 1); // prob need to change for EOF
-		if (c <= 0 && write(1, "\n", 1) > 0)
-			exit(-1);
-		if ((c == '\n' || c <= 0) && (buf[i] = '\0') == '\0') // use gnl ?
-			return (buf);
-		else
-			buf[i++] = (char)c;
-		if (i > BUFF_SIZE * size)
-		{
-			size++;
-			if (!(buf = realloc(buf, BUFF_SIZE * size)))
-				ft_error("allocation error\n");
-		}
+		ft_dprintf(2, "%s➜  %sminishell > %s", !g_exit ? C_G_GREEN : C_G_RED,
+			C_G_CYAN, C_RES);
+		return ;
 	}
+	i = -1;
+	while (prompt[++i])
+		if (prompt[i] == '/')
+			last = i + 1;
+	ft_dprintf(2, "%s➜  %s%s > %s", !g_exit ? C_G_GREEN : C_G_RED, C_G_CYAN,
+		&prompt[last], C_RES);
 }
 
 void	sig_handler(int signo)
 {
-	(void)signo;
-	write(1, "\n$> ", 4);
-	// exit (-1);
-}
-
-void	loop(void)
-{
-	char	*line;
-	char	**arg;
-	int		status;
-
-	status = 1;
-	signal(SIGINT, sig_handler);
-	// signal(SIGINT, SIG_IGN);
-	while (status)
+	if (signo == SIGINT && ft_dprintf(STDOUT, "\n"))
 	{
-		write(1, "$> ", 3);
-		line = read_line();
-		printf("[%s]\n", line);
-		arg = parse(line);
-		// status = execute(arg);
-		// freem(line, arg);
+		g_reset = 1;
+		g_exit = 130;
+		print_prompt(0);
 	}
+	else if (signo == SIGQUIT)
+		ft_dprintf(2, "\b\b  \b\b");
 }
 
-int		main(int ac, char *av[])
-{
-	(void)ac;
-	(void)av;
+#if BONUS == 1
 
-	loop();
+int		main(int ac, char **av, char **env)
+{
+	int			sloc;
+	t_node		*ast;
+
+	get_env(ac, av, env);
+	sloc = 0;
+	g_exit = 0;
+	while (1)
+	{
+		signal(SIGINT, sig_handler);
+		signal(SIGQUIT, sig_handler);
+		if ((ast = ast_builder(sloc)))
+		{
+			tree_draw(ast);
+			sloc = ast_interpreter(ast);
+			g_exit = sloc;
+			node__del(&ast, RECURCIVLY);
+		}
+		else
+			g_exit = 2;
+	}
+	free_all_malloc();
 	return (0);
 }
+
+#else
+
+int		main(int ac, char **av, char **env)
+{
+	int			sloc;
+	t_node		*ast;
+
+	get_env(ac, av, env);
+	sloc = 0;
+	g_exit = 0;
+	while (1)
+	{
+		signal(SIGINT, sig_handler);
+		signal(SIGQUIT, sig_handler);
+		if ((ast = ast_builder(sloc)))
+		{
+			sloc = ast_interpreter(ast);
+			g_exit = sloc;
+			node__del(&ast, RECURCIVLY);
+		}
+		else
+			g_exit = 2;
+	}
+	free_all_malloc();
+	return (0);
+}
+
+#endif
