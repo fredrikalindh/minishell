@@ -27,7 +27,7 @@ A project for 42 recoding a `bash` like shell by [fredrikalindh](https://github.
 # Compile the mandatory part
 make
 
-# Compile with bonus (termcaps)
+# Compile with bonus
 make bonus
 
 # Launch the shell
